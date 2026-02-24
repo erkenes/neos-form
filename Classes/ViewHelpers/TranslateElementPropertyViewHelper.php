@@ -70,16 +70,46 @@ class TranslateElementPropertyViewHelper extends AbstractViewHelper
         } else {
             $defaultValue = isset($element->getProperties()[$property]) ? (string)$element->getProperties()[$property] : '';
         }
+
         $renderingOptions = $element->getRenderingOptions();
-        if (!isset($renderingOptions['translationPackage'])) {
+        if (
+            !isset($renderingOptions['translationPackage'])
+            && !isset($element->getRootForm()->getRenderingOptions()['translationPackage'])
+        ) {
             return $defaultValue;
         }
+
+        $translationSource = 'Main';
+        if (isset($renderingOptions['translationSource'])) {
+            $translationSource = $renderingOptions['translationSource'];
+        }
+
         $translationId = sprintf('forms.elements.%s.%s', $element->getIdentifier(), $property);
+
+        $rootFormTranslation = null;
         try {
-            $translation = $this->translator->translateById($translationId, [], null, null, 'Main', $renderingOptions['translationPackage']);
+            try {
+                if (
+                    $element->getRootForm()->getRenderingOptions()['translationSource']
+                    && $element->getRootForm()->getRenderingOptions()['translationPackage']
+                ) {
+                    $rootFormTranslation = $this->translator->translateById(
+                        $translationId,
+                        [],
+                        null,
+                        null,
+                        $element->getRootForm()->getRenderingOptions()['translationSource'],
+                        $element->getRootForm()->getRenderingOptions()['translationPackage']
+                    );
+                }
+            } catch (ResourceException $exception) {
+            }
+
+            $translation = $this->translator->translateById($translationId, [], null, null, $translationSource, $renderingOptions['translationPackage']);
         } catch (ResourceException $exception) {
-            return $defaultValue;
+            return $rootFormTranslation ?? $defaultValue;
         }
-        return $translation ?? $defaultValue;
+
+        return $translation ?? $rootFormTranslation ?? $defaultValue;
     }
 }
